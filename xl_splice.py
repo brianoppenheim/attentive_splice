@@ -10,11 +10,12 @@ import torch
 from transformers import TransfoXLTokenizer, TransfoXLModel, TransfoXLConfig
 from torch.nn import CrossEntropyLoss
 import numpy as np
+from preprocess import get_data
 
 class Model(torch.nn.Module):
   def __init__(self):
     super(Model, self).__init__()
-    self.config = TransfoXLConfig(vocab_size_or_config_json_file=len(vocab)+267735)
+    self.config = TransfoXLConfig(vocab_size_or_config_json_file=len(vocab)+267735, n_heads=8, n_layers=9)
     self.model = TransfoXLModel(self.config)
     self.tokenizer = TransfoXLTokenizer.from_pretrained('transfo-xl-wt103')
     self.out_layer = torch.nn.Linear(self.model.d_model, 2)
@@ -23,13 +24,17 @@ class Model(torch.nn.Module):
     preds = self.out_layer(hidden_states).squeeze(0)
     return preds, mems
 def main():
+	device = torch.device('cuda') 
 	batch_size = 1
 	window_size = 1012
-	vocab, genes, labels, max_len = get_data("/content/drive/My Drive/all_samples_6-mer.txt")
+	vocab, genes, labels, max_len = get_data("/content/drive/My Drive/attentive_splice/all_samples_6-mer.txt")
 	model = Model()
+	model.to(device)
+	#model.load_state_dict(torch.load(""))
+	model.train()
 	model.tokenizer.add_tokens(list(vocab))
 	optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-	class_weights = torch.tensor(np.array([1.0, 100.0])).float()
+	class_weights = torch.tensor(np.array([1.0, 100.0])).float().cuda()
 	loss = CrossEntropyLoss(weight=class_weights)
 	total_loss = 0
 	for i in range(0, len(genes)):
@@ -38,8 +43,8 @@ def main():
 		gene_loss = 0
 		for w in range(0, len(genes[i]), window_size):
 			toks = np.array(model.tokenizer.convert_tokens_to_ids(genes[i][w:w+window_size]))
-			input_ids = torch.tensor(toks).unsqueeze(0)
-			gene_labels = torch.tensor(np.array(labels[i][w:w+window_size])).long()
+			input_ids = torch.tensor(toks).unsqueeze(0).cuda()
+			gene_labels = torch.tensor(np.array(labels[i][w:w+window_size])).long().cuda()
 			predictions, mems = model(input_ids, mems)
 			optimizer.zero_grad()
 			l = loss(predictions, gene_labels)
@@ -50,6 +55,8 @@ def main():
 		if i > 0 and i % 10 == 0:
 			print("Epoch: " + str(i) + " loss: " + str(total_loss / 10))
 			total_loss = 0
+			path = "/content/drive/My Drive/attentive_splice/" + str(i) + ".pt"
+			torch.save(model.state_dict(), path)
 if __name__ == '__main__':
 	main()
 
