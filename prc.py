@@ -11,8 +11,9 @@ def plot_AUCPRC(labels, predictions):
 		             that this sample belongs to the second class (e.g a splice site.)
 	"""
 	# In matplotlib < 1.5, plt.fill_between does not have a 'step' argument\
+		
 	precision, recall, _ = precision_recall_curve(labels, predictions)
-	auc = auc(recall, precision)
+	lr_auc = auc(recall, precision)
 	step_kwargs = ({'step': 'post'}
 	               if 'step' in signature(plt.fill_between).parameters
 	               else {})
@@ -24,5 +25,6 @@ def plot_AUCPRC(labels, predictions):
 	plt.ylabel('Precision')
 	plt.ylim([0.0, 1.05])
 	plt.xlim([0.0, 1.0])
-	plt.title('2-class Precision-Recall curve: auc={0:0.2f}'.format(
-	          auc))
+	plt.title('2-class Precision-Recall curve: auc={0:0.4f}'.format(
+	          lr_auc))
+	plt.savefig("/home/brian/bert_6_split_1.png")

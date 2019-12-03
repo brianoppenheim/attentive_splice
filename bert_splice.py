@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 from itertools import combinations_with_replacement, permutations
 import datetime
+import prc
 
 
 
@@ -97,12 +98,31 @@ model = BertForTokenClassification(BertConfig.from_json_file('/home/brian/attent
 model.resize_token_embeddings(len(tokenizer))
 model.to(device)
 
-#model.load_state_dict(torch.load("/content/drive/My Drive/bert_splice_weights.pt"))
+#model.load_state_dict(torch.load("/home/brian/bert_splice_weights.pt"))
 last_i = 0
 #with open('/home/brian/bert_last_i.txt', 'r') as last_i_file:
 #  i = last_i_file.read()
 #  last_i = int(i)
-
+def test():
+    model.eval()
+    tokenizer, formatted_hexamers, attention_masks, labels = process_data('/home/brian/Downloads/split_samples_6-mer_test.txt')
+    all_probs = []
+    all_labels = []
+    for batch in range(len(formatted_hexamers) // batch_size):
+        seq_batch = formatted_hexamers[batch*batch_size:(batch+1)*batch_size]
+        attention_masks_batch = attention_masks[batch*batch_size:(batch+1)*batch_size]
+        attention_masks_batch = torch.tensor(attention_masks_batch).long().cuda()
+        split_seq_batch = seq_batch[0].split()
+        original_len = len(split_seq_batch) #Don't want to include mask in the prc curve
+        batch_ids = [tokenizer.convert_tokens_to_ids(split_seq_batch)]
+        batch_ids = pad_sequences(batch_ids, maxlen=MAX_LEN, truncating='post', padding='post')[0]
+        batch_ids = torch.tensor(batch_ids).unsqueeze(0).long().cuda()
+        batch_labels = torch.tensor(labels[batch*batch_size:(batch+1)*batch_size]).long().cuda()
+        predictions = model(batch_ids, attention_mask=attention_masks_batch)
+        #Collect our predictions and associated label
+        all_probs.extend(predictions[0].squeeze(0).detach().cpu().numpy()[:original_len, 1].tolist())
+        all_labels.extend(labels[batch*batch_size:(batch+1)*batch_size][0][:original_len])
+    prc.plot_AUCPRC(all_labels, all_probs)
 print(last_i)
 optimizer = Adam(model.parameters(), lr=3e-5)
 
@@ -129,9 +149,10 @@ for batch in range(len(formatted_hexamers) // batch_size):
     training_loss.append(l.item())
     l.backward()
     optimizer.step()
-    if batch > 0 and batch % 500 == 0:
+    if batch > 0 and batch % 7000 == 0:
       path = "/home/brian/bert_splice_weights.pt"
       last_seq_path = "/home/brian/bert_last_i.txt"
+      test()
       with open(last_seq_path, 'w+') as seq_record:
         seq_record.write(str(batch))
       loss_trace_path = "/home/brian/bert_loss_trace.txt"
@@ -141,5 +162,7 @@ for batch in range(len(formatted_hexamers) // batch_size):
     if batch > 0 and batch % 100 == 0:
       print("Batch: " + str(batch) + " loss: " + str(total_loss / 100))
       total_loss = 0
+
+test()     
 
 
