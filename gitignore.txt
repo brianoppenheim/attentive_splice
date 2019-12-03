@@ -1,3 +1,4 @@
-correlation_plot.png
-bert_brain_weights.pt
-Brain_train.txt
+/correlation_plot.png
+/bert_brain_weights.pt
+/Brain_train.txt
+kmers
