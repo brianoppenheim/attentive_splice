@@ -19,7 +19,7 @@ def read_in_val_data(filepath):
   print("reading ",filepath)
   genes = []
   labels = []
-  df = pd.read_csv(filepath,usecols=[2,3],sep="\t",skiprows=1,header=None,nrows=10)
+  df = pd.read_csv(filepath,usecols=[2,3],sep="\t",skiprows=1,header=None,nrows=50)
   print(df.head())
   for entry in df.itertuples():
     kmer_list = [kmer.strip("\'") for kmer in entry[1][1:-1].split(", ")]
@@ -117,7 +117,7 @@ def top_kmers(windows, genes, labels):
         mask_tensor = torch.tensor(mask).unsqueeze(0).long()
         _, attention = model(input_tensor, attention_mask=mask_tensor)
         attention_weights = attention[0].squeeze(0).detach().numpy()[0]
-        max_column = np.argsort(np.mean(attention_weights, axis=0))[-5:]
+        max_column = np.argsort(np.mean(attention_weights, axis=0))[-10:]
         for m in max_column:
             seq = genes[i][m]
             if seq not in kmer_dict:
@@ -146,13 +146,15 @@ model.load_state_dict(torch.load("./brain_bert_weights.pt",map_location=torch.de
 
 genes, labels = read_in_val_data('./Brain_train.txt')
 
-window_number = 2
+window_number = 5
 input_ids, mask, label = tokenize_and_pad_single_sample(genes[window_number],labels[window_number])
-kmer_range = 150
+print(input_ids.shape)
+kmer_range = 80
 splice_sites = np.where(np.array(label) > 0.0)
-selected_splice_site = splice_sites[0][0]
+selected_splice_site = splice_sites[0][5]
 print(splice_sites)
 print(selected_splice_site)
+print(genes[window_number][selected_splice_site])
 min_kmer = np.maximum(0, selected_splice_site - kmer_range)
 max_kmer = np.minimum(1002, selected_splice_site + kmer_range)
 print(min_kmer)
@@ -161,20 +163,19 @@ input_tensor = torch.tensor(input_ids).unsqueeze(0).long()
 mask_tensor = torch.tensor(mask).unsqueeze(0).long()
 preds, attention = model(input_tensor, attention_mask=mask_tensor)
 
-att_path = "./attention_weights.txt"
 attention_weights = attention[0].squeeze(0).detach().numpy()[0][min_kmer:max_kmer, min_kmer:max_kmer]
 print(attention_weights.shape)
-max_column = np.argsort(np.mean(attention_weights, axis=0))[-5:]
+max_column = np.argsort(np.mean(attention_weights, axis=0))[-10:]
 print(max_column)
 
 print(len(genes))
 top_kmers(10, genes, labels)
 sequence_values_x = genes[window_number][min_kmer:max_kmer]
-for m in max_column:
-    print(sequence_values_x[m])
+#for m in max_column:
+    #print(sequence_values_x[m])
 sequence_values_y = genes[window_number][min_kmer:max_kmer]
-splice_site_indicator = [' ' for i in range(kmer_range*2)]
-splice_site_indicator[selected_splice_site] = 'Splice'
+splice_site_indicator = [' ' for i in range(min_kmer, max_kmer)]
+splice_site_indicator[np.minimum(selected_splice_site, kmer_range)] = 'Splice'
 
 fig, ax = plt.subplots()
 im = ax.imshow(attention_weights)
