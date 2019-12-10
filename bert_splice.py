@@ -55,7 +55,6 @@ def process_data(path):
                 file_table.append(new_entry)
                 i += 1
             first = False
-    
     return handle_tokenization(file_table)
 
 def handle_tokenization(file_table):
@@ -92,12 +91,12 @@ tokenizer, formatted_hexamers, attention_masks, labels = process_data('/home/bri
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 n_gpu = torch.cuda.device_count()
-torch.cuda.get_device_name(0) 
+torch.cuda.get_device_name(0)
 
 model = BertForTokenClassification(BertConfig.from_json_file('/home/brian/attentive_splice/bert_configuration_split_hex.json'))
 model.resize_token_embeddings(len(tokenizer))
 model.to(device)
-
+print(model.bert.config)
 #model.load_state_dict(torch.load("/home/brian/bert_splice_weights.pt"))
 last_i = 0
 #with open('/home/brian/bert_last_i.txt', 'r') as last_i_file:
@@ -123,6 +122,7 @@ def test():
         all_probs.extend(predictions[0].squeeze(0).detach().cpu().numpy()[:original_len, 1].tolist())
         all_labels.extend(labels[batch*batch_size:(batch+1)*batch_size][0][:original_len])
     prc.plot_AUCPRC(all_labels, all_probs)
+    model.train()
 print(last_i)
 optimizer = Adam(model.parameters(), lr=3e-5)
 
@@ -149,7 +149,7 @@ for batch in range(len(formatted_hexamers) // batch_size):
     training_loss.append(l.item())
     l.backward()
     optimizer.step()
-    if batch > 0 and batch % 7000 == 0:
+    if batch > 0 and batch % 10000 == 0:
       path = "/home/brian/bert_splice_weights.pt"
       last_seq_path = "/home/brian/bert_last_i.txt"
       test()

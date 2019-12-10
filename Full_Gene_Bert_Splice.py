@@ -113,14 +113,11 @@ print("Finished making data")
 batch_size = 1
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#remove if they dont do anything
-#n_gpu = torch.cuda.device_count()
-#torch.cuda.get_device_name(0) 
 
 model = BertForTokenClassification(BertConfig.from_json_file('/home/brian/attentive_splice/bert_configuration_all_hex.json'))
 model.resize_token_embeddings(4099)
 model.to(device)
-optimizer = Adam(model.parameters(), lr=3e-5)
+optimizer = Adam(model.parameters(), lr=1e-3) #lr=3e-5)
 class_weights = torch.tensor(np.array([1.0, 165.0])).float().cuda()
 loss = CrossEntropyLoss(weight=class_weights)
 last_i = 0
@@ -154,7 +151,7 @@ def run_epoch(input_ids,masks,labels):
     cycle_loss += l.item()
     l.backward()
     optimizer.step()
-    
+
     if batch > 0 and batch % 1000 == 0:
       save_weights()
     if batch > 0 and batch % 100 == 0:
@@ -163,7 +160,6 @@ def run_epoch(input_ids,masks,labels):
       cycle_loss = 0
   epoch_loss+=cycle_loss
   print("Epoch Loss"+str(epoch_loss/(num_samples-last_i)))
-
 
 def evaluate_model(input_ids,masks,labels):
   model.eval()
