@@ -71,12 +71,11 @@ def read_non_split_file(filepath):
 def tokenize_and_pad_samples(genes,labels):
   k= len(genes[0][0])
   if k==4:
-    kmer_filepath = '/content/drive/My Drive/kmers/fourmers.txt'
+    kmer_filepath = '/home/brian/Downloads/fourmers.txt'
   elif k==6:
-    kmer_filepath = '/content/drive/My Drive/kmers/hexamers.txt'
+    kmer_filepath = '/home/brian/Downloads/hexamers.txt'
   elif k==8:
-    kmer_filepath = '/content/drive/My Drive/kmers/octamers.txt'
-
+    kmer_filepath = '/home/brian/Downloads/octamers.txt'
   formatted_samples = [['[CLS]']  + sample + ['[SEP]'] for sample in genes]
   formatted_labels = [[0] + l + [0] for l in labels]
   tokenizer = BertTokenizer(kmer_filepath, max_len=MAX_LEN)
@@ -89,9 +88,9 @@ def tokenize_and_pad_samples(genes,labels):
   return seq_ids, attention_masks, formatted_labels
 
 def handle_tokenization(file_table):
-    fourmers_path = '/content/drive/My Drive/kmers/fourmers.txt'
-    hexamers_path = '/content/drive/My Drive/kmers/hexamers.txt'
-    octamers_path = '/content/drive/My Drive/kmers/octamers.txt'
+    fourmers_path = '/home/brian/Downloads/fourmers.txt'
+    hexamers_path = '/home/brian/Downloads/hexamers.txt'
+    octamers_path = '/home/brian/Downloads/octamers.txt'
 
     formatted_hexamers = ['[CLS] ' + f[2] + ' [SEP]' for f in file_table]
     labels = [[0] + f[3] + [0] for f in file_table]
@@ -105,7 +104,7 @@ def handle_tokenization(file_table):
     return tokenizer, formatted_hexamers, attention_masks, labels
 
 MAX_LEN=16670
-genes,labels = read_non_split_file('/content/drive/My Drive/partitioned_samples/all_samples_6-mer/all_samples_6-mer_train.txt')
+genes,labels = read_non_split_file('/home/brian/Downloads/all_samples_6-mer_train.txt')
 seq_ids, masks, labels = tokenize_and_pad_samples(genes,labels)
 print(seq_ids[0])
 print(len(seq_ids))
@@ -114,28 +113,25 @@ print("Finished making data")
 batch_size = 1
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#remove if they dont do anything
-#n_gpu = torch.cuda.device_count()
-#torch.cuda.get_device_name(0) 
 
-model = BertForTokenClassification(BertConfig.from_json_file('/content/drive/My Drive/bert_configuration.json'))
+model = BertForTokenClassification(BertConfig.from_json_file('/home/brian/attentive_splice/bert_configuration_all_hex.json'))
 model.resize_token_embeddings(4099)
 model.to(device)
-optimizer = Adam(model.parameters(), lr=3e-5)
+optimizer = Adam(model.parameters(), lr=1e-3) #lr=3e-5)
 class_weights = torch.tensor(np.array([1.0, 165.0])).float().cuda()
 loss = CrossEntropyLoss(weight=class_weights)
 last_i = 0
 
 def load_model_from_saved():
-  with open('/content/drive/My Drive/bert_last_i.txt', 'r') as last_i_file:
+  with open('/home/brian/bert_last_i.txt', 'r') as last_i_file:
     i = last_i_file.read()
     last_i = int(i)
-    model.load_state_dict(torch.load("/content/drive/My Drive/bert_splice_weights.pt"))
+    model.load_state_dict(torch.load("/home/brian/bert_splice_weights.pt"))
 
 def save_weights():
   print("Saving weights")
-  path = "/content/drive/My Drive/attentive_splice_weights/bert_weights_6mer.pt"
-  last_seq_path = "/content/drive/My Drive/attentive_splice_weights/bert_last_i.txt"
+  path = "/home/brian/bert_weights_6mer.pt"
+  last_seq_path = "/home/brian/bert_last_i.txt"
   with open(last_seq_path, 'w+') as seq_record:
     seq_record.write(str(batch))
   torch.save(model.state_dict(), path)
@@ -155,7 +151,7 @@ def run_epoch(input_ids,masks,labels):
     cycle_loss += l.item()
     l.backward()
     optimizer.step()
-    
+
     if batch > 0 and batch % 1000 == 0:
       save_weights()
     if batch > 0 and batch % 100 == 0:
@@ -164,7 +160,6 @@ def run_epoch(input_ids,masks,labels):
       cycle_loss = 0
   epoch_loss+=cycle_loss
   print("Epoch Loss"+str(epoch_loss/(num_samples-last_i)))
-
 
 def evaluate_model(input_ids,masks,labels):
   model.eval()
