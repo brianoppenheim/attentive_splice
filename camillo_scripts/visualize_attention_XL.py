@@ -134,10 +134,8 @@ def get_attentions_for_sample(curr_kmers):
 class Model(torch.nn.Module):
   def __init__(self):
     super(Model, self).__init__()
-    self.config = TransfoXLConfig(vocab_size_or_config_json_file='regression_XL_configuration.json')
+    self.config = TransfoXLConfig(vocab_size_or_config_json_file='../model_configs/classification_XL_configuration.json')
     self.config.vocab_size=204098
-    self.config.n_layers=3
-    self.config.n_heads=5
     self.config.output_attentions=True
     self.model = TransfoXLModel(self.config)
     self.out_layer = torch.nn.Linear(self.model.d_model, 2)
@@ -146,11 +144,11 @@ class Model(torch.nn.Module):
     preds = self.out_layer(hidden_states[0]).squeeze(0)
     np_att = atts[0].squeeze(0).detach().numpy()
     print(np.shape(np_att[0]))
-    return preds, mems, np_att[0]
+    return preds, mems, np_att[5]
 
 #building model
 model = Model()
-f="/Users/camillo_stuff/Downloads/xl_classification_6merv11.pt"
+f="../camillo_scripts/xl_classification_6mer_sd_ftMKII.pt"
 model.load_state_dict(torch.load(f,map_location=torch.device('cpu')))
 window_size=1012
 
@@ -160,18 +158,18 @@ gene_ids = tokenize_samples(genes)
 print(len(gene_ids))
 print("Finished making data")
 
-curr_sample=29
+curr_sample=4
 window_num = 0
 first_kmer = 0
-last_kmer = 1000
-first_attention=0
-last_attention=1000
-mem_length = 1024
+last_kmer = 200
+first_attention=1012
+last_attention=1212
+mem_length = 1012
 
 print(len(labels[curr_sample]))
 
 y_ss_indicators = ["SS" if labels[curr_sample][i]==1 else '' for i in range(first_kmer,last_kmer)]
-x_ss_indicators = ["SS" if i>=0 and labels[curr_sample][i]==1 else '' for i in range(first_attention-1024,last_attention-1024)]
+x_ss_indicators = ["SS" if i>=0 and labels[curr_sample][i]==1 else '' for i in range(first_attention-mem_length,last_attention-mem_length)]
 
 #list of attentions per window
 attention_weights = get_attentions_for_sample(gene_ids[curr_sample])
